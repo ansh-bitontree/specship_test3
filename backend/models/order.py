@@ -3,7 +3,10 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import relationship
 
-from database import Base
+if __package__.startswith("backend."):
+    from backend.database import Base
+else:
+    from database import Base
 
 
 class Order(Base):

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { Link, Navigate, Route, BrowserRouter as Router, Routes, useNavigate } from "react-router-dom";
+import { Link, Navigate, Route, BrowserRouter as Router, Routes, useNavigate, useParams } from "react-router-dom";
 
 
 const AuthContext = createContext(null);
@@ -223,10 +223,160 @@ function ProtectedRoute({ children }) {
 }
 
 
-function HomePage() {
+function formatPrice(price) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(Number(price));
+}
+
+
+function ProductCard({ product }) {
   return (
-    <main className="page">
-      <h1>Home</h1>
+    <article className="product-card">
+      <img src={product.image_url} alt={product.name} />
+      <div className="product-card__body">
+        <Link to={`/products/${product.id}`} className="product-card__title">
+          <h2>{product.name}</h2>
+        </Link>
+        <p className="product-price">{formatPrice(product.price)}</p>
+        <button type="button">Add to Cart</button>
+      </div>
+    </article>
+  );
+}
+
+
+function HomePage() {
+  const [products, setProducts] = useState([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadProducts() {
+      setLoading(true);
+      setError("");
+      try {
+        const response = await fetch("/products");
+        if (!response.ok) {
+          throw new Error("Unable to load products");
+        }
+        const payload = await response.json();
+        if (!ignore) {
+          setProducts(payload);
+        }
+      } catch {
+        if (!ignore) {
+          setError("Unable to load products");
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadProducts();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const visibleProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+
+  return (
+    <main className="catalog-page">
+      <div className="catalog-header">
+        <h1>Products</h1>
+        <label className="search-field">
+          <span>Search products</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search products"
+          />
+        </label>
+      </div>
+
+      {loading && <p>Loading products...</p>}
+      {error && <p role="alert">{error}</p>}
+      {!loading && !error && (
+        <div className="product-grid">
+          {visibleProducts.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      )}
+    </main>
+  );
+}
+
+
+function ProductDetailPage() {
+  const { id } = useParams();
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadProduct() {
+      setLoading(true);
+      setError("");
+      try {
+        const response = await fetch(`/products/${id}`);
+        if (!response.ok) {
+          throw new Error("Unable to load product");
+        }
+        const payload = await response.json();
+        if (!ignore) {
+          setProduct(payload);
+        }
+      } catch {
+        if (!ignore) {
+          setError("Unable to load product");
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadProduct();
+    return () => {
+      ignore = true;
+    };
+  }, [id]);
+
+  if (loading) {
+    return <main className="page">Loading product...</main>;
+  }
+  if (error || !product) {
+    return (
+      <main className="page">
+        <p role="alert">{error || "Product not found"}</p>
+      </main>
+    );
+  }
+
+  return (
+    <main className="product-detail">
+      <img src={product.image_url} alt={product.name} />
+      <section className="product-detail__content">
+        <h1>{product.name}</h1>
+        <p>{product.description}</p>
+        <p className="product-price">{formatPrice(product.price)}</p>
+        <p>{product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}</p>
+        <button type="button">Add to Cart</button>
+      </section>
     </main>
   );
 }
@@ -256,6 +406,7 @@ function AppRoutes() {
       <Navbar />
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/products/:id" element={<ProductDetailPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route
