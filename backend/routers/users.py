@@ -7,9 +7,14 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from backend.database import get_db
-from backend.models import User
-from backend.schemas import Token, UserCreate, UserLogin, UserRead
+if __package__.startswith("backend."):
+    from backend.database import get_db
+    from backend.models import User
+    from backend.schemas import Token, UserCreate, UserLogin, UserRead
+else:
+    from database import get_db
+    from models import User
+    from schemas import Token, UserCreate, UserLogin, UserRead
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])

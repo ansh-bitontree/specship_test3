@@ -3,8 +3,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-import models
-from database import create_tables
+if __package__:
+    import backend.models  # noqa: F401
+    from backend.database import create_tables
+    from backend.routers.products import router as products_router
+    from backend.routers.users import router as users_router
+else:
+    import models  # noqa: F401
+    from database import create_tables
+    from routers.products import router as products_router
+    from routers.users import router as users_router
 
 
 @asynccontextmanager
@@ -24,6 +32,7 @@ app.add_middleware(
 )
 
 app.include_router(users_router)
+app.include_router(products_router)
 
 @app.get("/")
 def read_root():

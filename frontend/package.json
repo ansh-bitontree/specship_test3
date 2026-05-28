@@ -1,17 +1,22 @@
 {
+  "name": "specship-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "preview": "vite preview",
     "test": "NODE_ENV=test vitest run --environment jsdom"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",
-    "vite": "^7.0.0",
-    "typescript": "^5.8.0",
+    "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0",
-    "lucide-react": "^0.468.0"
+    "typescript": "^5.8.0",
+    "vite": "^7.0.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.0",
@@ -20,21 +25,4 @@
     "jsdom": "^26.0.0",
     "vitest": "^3.0.0"
   }
-  "name": "specship-frontend",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.5"
-  },
-  "devDependencies": {}
 }

@@ -28,6 +28,9 @@ def get_db():
 
 
 def create_tables():
-    import models  # noqa: F401
+    if __name__.startswith("backend."):
+        import backend.models  # noqa: F401
+    else:
+        import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)

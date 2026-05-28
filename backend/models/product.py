@@ -2,7 +2,10 @@ from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, Integer, Numeric, String, Text
 
-from database import Base
+if __package__.startswith("backend."):
+    from backend.database import Base
+else:
+    from database import Base
 
 
 class Product(Base):

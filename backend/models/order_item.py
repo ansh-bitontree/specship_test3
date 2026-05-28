@@ -1,7 +1,10 @@
 from sqlalchemy import Column, ForeignKey, Integer, Numeric
 from sqlalchemy.orm import relationship
 
-from database import Base
+if __package__.startswith("backend."):
+    from backend.database import Base
+else:
+    from database import Base
 
 
 class OrderItem(Base):
