@@ -87,4 +87,31 @@ describe("product catalog", () => {
     expect(screen.getByText(/durable day pack/i)).toBeInTheDocument();
     expect(screen.getByText(/12 in stock/i)).toBeInTheDocument();
   });
+
+  it("shows fetch failures and disables cart actions for out of stock products", async () => {
+    const user = userEvent.setup();
+    const outOfStockProduct = { ...products[0], stock: 0 };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+      if (String(url) === "/products") {
+        return { ok: false, status: 500, json: async () => ({ detail: "Server error" }) };
+      }
+      if (String(url) === "/products/1") {
+        return { ok: true, status: 200, json: async () => outOfStockProduct };
+      }
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to load products");
+
+    window.history.pushState({}, "", "/products/1");
+    cleanup();
+    render(<App />);
+
+    expect(await screen.findByText(/out of stock/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /out of stock/i })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: /out of stock/i }));
+    expect(localStorage.getItem("cartItems")).toBe("[]");
+  });
 });

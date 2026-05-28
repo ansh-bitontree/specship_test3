@@ -87,6 +87,54 @@ describe("authentication flow", () => {
     expect(screen.getByRole("link", { name: /login/i })).toBeInTheDocument();
   });
 
+  it("shows login success toasts and friendly credential errors", async () => {
+    const user = userEvent.setup();
+    mockFetch(async (url, options) => {
+      if (url === "/auth/login" && JSON.parse(options.body).password === "wrong") {
+        return { status: 401, body: { detail: "Invalid email or password" } };
+      }
+      if (url === "/auth/login") {
+        return {
+          status: 200,
+          body: { access_token: "signed.jwt.token", token_type: "bearer" },
+        };
+      }
+      if (url === "/auth/me") {
+        return {
+          status: 200,
+          body: { id: 1, name: "Ada Lovelace", email: "ada@example.com" },
+        };
+      }
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+
+    render(<App />);
+    await user.click(screen.getByRole("link", { name: /login/i }));
+    await user.type(screen.getByLabelText(/email/i), "ada@example.com");
+    await user.type(screen.getByLabelText(/password/i), "wrong");
+    await user.click(screen.getByRole("button", { name: /login/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Login failed — check your credentials");
+
+    await user.clear(screen.getByLabelText(/password/i));
+    await user.type(screen.getByLabelText(/password/i), "secret123");
+    await user.click(screen.getByRole("button", { name: /login/i }));
+
+    expect(await screen.findByText(/logged in successfully/i)).toBeInTheDocument();
+  });
+
+  it("keeps login and register links visible while signed out", () => {
+    mockFetch(async () => {
+      throw new Error("Signed-out navbar should not fetch user data");
+    });
+
+    render(<App />);
+
+    expect(screen.getByRole("link", { name: /login/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /register/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /logout/i })).not.toBeInTheDocument();
+  });
+
   it("restores logged-in state from localStorage on refresh", async () => {
     localStorage.setItem("authToken", "stored.jwt.token");
     mockFetch(async (url, options) => {

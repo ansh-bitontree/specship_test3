@@ -132,6 +132,40 @@ describe("cart and order flow", () => {
     expect(await screen.findByRole("heading", { name: /order placed/i })).toBeInTheDocument();
     expect(localStorage.getItem("cartItems")).toBe("[]");
     expect(screen.getByRole("link", { name: /view your orders/i })).toHaveAttribute("href", "/orders");
+    expect(screen.getByText(/order placed successfully/i)).toBeInTheDocument();
+  });
+
+  it("shows a toast when a product is added to cart", async () => {
+    const user = userEvent.setup();
+    mockCatalogFetch();
+
+    render(<App />);
+
+    await user.click((await screen.findAllByRole("button", { name: /add to cart/i }))[0]);
+
+    expect(await screen.findByText(/item added to cart/i)).toBeInTheDocument();
+  });
+
+  it("shows a friendly error when order placement fails", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("authToken", "signed.jwt.token");
+    localStorage.setItem("cartItems", JSON.stringify([{ product: products[0], quantity: 1 }]));
+    mockFetch(async (url) => {
+      if (url === "/auth/me") {
+        return { status: 200, body: { id: 1, name: "Ada Lovelace", email: "ada@example.com" } };
+      }
+      if (url === "/orders") {
+        return { status: 400, body: { detail: "Insufficient stock" } };
+      }
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+
+    render(<App />);
+    await screen.findByText(/ada lovelace/i);
+    await user.click(screen.getByRole("link", { name: /cart/i }));
+    await user.click(screen.getByRole("button", { name: /place order/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Order could not be placed");
   });
 
   it("lists past orders for a logged-in user", async () => {
@@ -162,7 +196,36 @@ describe("cart and order flow", () => {
     render(<App />);
 
     expect(await screen.findByText(/order #10/i)).toBeInTheDocument();
-    expect(screen.getByText(/pending/i)).toBeInTheDocument();
+    expect(screen.getByText(/pending/i)).toHaveClass("status-label", "status-label--pending");
     expect(screen.getByText("$199.48")).toBeInTheDocument();
+  });
+
+  it("uses a distinct status label for confirmed orders", async () => {
+    localStorage.setItem("authToken", "signed.jwt.token");
+    mockFetch(async (url) => {
+      if (url === "/auth/me") {
+        return { status: 200, body: { id: 1, name: "Ada Lovelace", email: "ada@example.com" } };
+      }
+      if (url === "/orders") {
+        return {
+          status: 200,
+          body: [
+            {
+              id: 11,
+              status: "confirmed",
+              total_price: "89.99",
+              created_at: "2026-05-28T08:00:00Z",
+              items: [],
+            },
+          ],
+        };
+      }
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+
+    window.history.pushState({}, "", "/orders");
+    render(<App />);
+
+    expect(await screen.findByText(/confirmed/i)).toHaveClass("status-label", "status-label--confirmed");
   });
 });

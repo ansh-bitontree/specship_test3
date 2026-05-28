@@ -67,6 +67,17 @@ def test_auth_me_requires_valid_bearer_token():
     assert invalid_token.status_code == 401
 
 
+def test_protected_routes_return_403_for_missing_or_invalid_token():
+    reset_database()
+    client = TestClient(app)
+
+    missing_token = client.get("/orders")
+    invalid_token = client.get("/orders", headers={"Authorization": "Bearer not-a-valid-token"})
+
+    assert missing_token.status_code == 403
+    assert invalid_token.status_code == 403
+
+
 def test_login_rejects_invalid_credentials():
     reset_database()
     client = TestClient(app)
