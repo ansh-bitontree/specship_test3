@@ -103,17 +103,15 @@ describe("authentication flow", () => {
     expect(await screen.findByText(/grace hopper/i)).toBeInTheDocument();
   });
 
-  it("redirects unauthenticated users away from protected routes", async () => {
+  it("shows checkout login action to unauthenticated cart users", async () => {
     window.history.pushState({}, "", "/cart");
     mockFetch(async () => {
-      throw new Error("Unauthenticated protected route should not fetch the user");
+      throw new Error("Guest cart should not fetch the user");
     });
 
     render(<App />);
 
-    await waitFor(() => {
-      expect(window.location.pathname).toBe("/login");
-    });
-    expect(screen.getByRole("heading", { name: /login/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /cart/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /login to checkout/i })).toHaveAttribute("href", "/login");
   });
 });
