@@ -104,7 +104,7 @@ describe("authentication flow", () => {
   });
 
   it("redirects unauthenticated users away from protected routes", async () => {
-    window.history.pushState({}, "", "/cart");
+    window.history.pushState({}, "", "/orders");
     mockFetch(async () => {
       throw new Error("Unauthenticated protected route should not fetch the user");
     });
