@@ -82,6 +82,15 @@ class ProjectSetupTests(unittest.TestCase):
         self.assertIn("sslmode=require", database.DATABASE_URL)
         self.assertTrue(database.engine.url.drivername.startswith("postgresql"))
 
+    def test_database_does_not_read_unrelated_root_env_local(self):
+        os.environ.pop("DATABASE_URL", None)
+        root_env_local = BACKEND_DIR.parent / ".env.local"
+        if not root_env_local.exists():
+            self.skipTest("No root .env.local file is present in this workspace")
+
+        with self.assertRaisesRegex(RuntimeError, "DATABASE_URL"):
+            reload_backend_module("database")
+
     def test_all_required_tables_are_registered_on_metadata(self):
         require_backend_file("models/__init__.py")
         reload_backend_module("models")
@@ -113,6 +122,28 @@ class ProjectSetupTests(unittest.TestCase):
         self.assertTrue(set(expected_columns).issubset(tables.keys()))
         for table_name, columns in expected_columns.items():
             self.assertTrue(columns.issubset(tables[table_name].columns.keys()))
+
+    def test_create_tables_registers_models_before_creating_schema(self):
+        require_backend_file("database.py")
+        database = reload_backend_module("database")
+
+        created_table_names = []
+
+        def capture_create_all(bind):
+            created_table_names.extend(database.Base.metadata.tables.keys())
+
+        original_create_all = database.Base.metadata.create_all
+        database.Base.metadata.create_all = capture_create_all
+
+        try:
+            database.create_tables()
+        finally:
+            database.Base.metadata.create_all = original_create_all
+
+        self.assertEqual(
+            {"users", "products", "orders", "order_items"},
+            set(created_table_names),
+        )
 
 
 if __name__ == "__main__":

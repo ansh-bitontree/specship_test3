@@ -6,8 +6,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 
-load_dotenv()
-load_dotenv(Path(__file__).resolve().parents[1] / ".env.local")
+BACKEND_DIR = Path(__file__).resolve().parent
+load_dotenv(BACKEND_DIR / ".env")
+load_dotenv(BACKEND_DIR / ".env.local")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -27,4 +28,6 @@ def get_db():
 
 
 def create_tables():
+    import models  # noqa: F401
+
     Base.metadata.create_all(bind=engine)
