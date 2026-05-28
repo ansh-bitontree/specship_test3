@@ -63,6 +63,8 @@ describe("cart and order flow", () => {
     render(<App />);
 
     await user.click((await screen.findAllByRole("button", { name: /add to cart/i }))[0]);
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Item added to cart");
     await user.click(screen.getByRole("link", { name: /cart/i }));
     expect(screen.getByRole("heading", { name: /cart/i })).toBeInTheDocument();
     expect(screen.getByText(/trail backpack/i)).toBeInTheDocument();
@@ -129,6 +131,7 @@ describe("cart and order flow", () => {
     await user.click(screen.getByRole("link", { name: /cart/i }));
     await user.click(screen.getByRole("button", { name: /place order/i }));
 
+    expect(await screen.findByRole("status")).toHaveTextContent("Order placed");
     expect(await screen.findByRole("heading", { name: /order placed/i })).toBeInTheDocument();
     expect(localStorage.getItem("cartItems")).toBe("[]");
     expect(screen.getByRole("link", { name: /view your orders/i })).toHaveAttribute("href", "/orders");
@@ -161,8 +164,31 @@ describe("cart and order flow", () => {
     window.history.pushState({}, "", "/orders");
     render(<App />);
 
+    expect(screen.getByRole("status", { name: /loading orders/i })).toBeInTheDocument();
     expect(await screen.findByText(/order #10/i)).toBeInTheDocument();
-    expect(screen.getByText(/pending/i)).toBeInTheDocument();
+    expect(screen.getByText(/pending/i)).toHaveClass("status-label--pending");
     expect(screen.getByText("$199.48")).toBeInTheDocument();
+  });
+
+  it("shows a clear error when order placement fails", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("authToken", "signed.jwt.token");
+    localStorage.setItem("cartItems", JSON.stringify([{ product: products[0], quantity: 20 }]));
+    mockFetch(async (url) => {
+      if (url === "/auth/me") {
+        return { status: 200, body: { id: 1, name: "Ada Lovelace", email: "ada@example.com" } };
+      }
+      if (url === "/orders") {
+        return { status: 400, body: { detail: "Insufficient stock" } };
+      }
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+
+    render(<App />);
+    await screen.findByText(/ada lovelace/i);
+    await user.click(screen.getByRole("link", { name: /cart/i }));
+    await user.click(screen.getByRole("button", { name: /place order/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Order could not be placed");
   });
 });

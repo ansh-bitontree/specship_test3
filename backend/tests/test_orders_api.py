@@ -160,6 +160,6 @@ def test_order_routes_require_authentication():
     list_response = client.get("/orders")
     detail_response = client.get("/orders/1")
 
-    assert post_response.status_code == 401
-    assert list_response.status_code == 401
-    assert detail_response.status_code == 401
+    assert post_response.status_code == 403
+    assert list_response.status_code == 403
+    assert detail_response.status_code == 403

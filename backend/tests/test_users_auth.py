@@ -63,8 +63,8 @@ def test_auth_me_requires_valid_bearer_token():
         headers={"Authorization": "Bearer not-a-valid-token"},
     )
 
-    assert missing_token.status_code == 401
-    assert invalid_token.status_code == 401
+    assert missing_token.status_code == 403
+    assert invalid_token.status_code == 403
 
 
 def test_login_rejects_invalid_credentials():
@@ -81,3 +81,21 @@ def test_login_rejects_invalid_credentials():
     )
 
     assert response.status_code == 401
+
+
+def test_register_rejects_duplicate_email_and_invalid_payload():
+    reset_database()
+    client = TestClient(app)
+    payload = {"name": "Grace Hopper", "email": "grace@example.com", "password": "secret123"}
+
+    first_response = client.post("/auth/register", json=payload)
+    duplicate_response = client.post("/auth/register", json=payload)
+    invalid_response = client.post(
+        "/auth/register",
+        json={"name": "", "email": "not-an-email", "password": "123"},
+    )
+
+    assert first_response.status_code == 201
+    assert duplicate_response.status_code == 400
+    assert duplicate_response.json()["detail"] == "Email already registered"
+    assert invalid_response.status_code == 422
