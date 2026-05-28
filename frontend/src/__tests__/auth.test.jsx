@@ -79,6 +79,7 @@ describe("authentication flow", () => {
     await user.click(screen.getByRole("button", { name: /login/i }));
 
     expect(await screen.findByText(/ada lovelace/i)).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent("Login successful");
     expect(localStorage.getItem("authToken")).toBe("signed.jwt.token");
 
     await user.click(screen.getByRole("button", { name: /logout/i }));
@@ -115,5 +116,21 @@ describe("authentication flow", () => {
       expect(window.location.pathname).toBe("/login");
     });
     expect(screen.getByRole("heading", { name: /login/i })).toBeInTheDocument();
+  });
+
+  it("shows a clear login failure message", async () => {
+    const user = userEvent.setup();
+    mockFetch(async (url) => {
+      expect(url).toBe("/auth/login");
+      return { status: 401, body: { detail: "Invalid email or password" } };
+    });
+
+    render(<App />);
+    await user.click(screen.getByRole("link", { name: /login/i }));
+    await user.type(screen.getByLabelText(/email/i), "ada@example.com");
+    await user.type(screen.getByLabelText(/password/i), "wrong");
+    await user.click(screen.getByRole("button", { name: /login/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Login failed - check your credentials");
   });
 });

@@ -87,4 +87,49 @@ describe("product catalog", () => {
     expect(screen.getByText(/durable day pack/i)).toBeInTheDocument();
     expect(screen.getByText(/12 in stock/i)).toBeInTheDocument();
   });
+
+  it("shows a friendly product loading error", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to load products");
+  });
+
+  it("disables adding out-of-stock products to the cart", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+      if (String(url) === "/products") {
+        return { ok: true, status: 200, json: async () => [{ ...products[0], stock: 0 }] };
+      }
+      if (String(url) === "/products/1") {
+        return { ok: true, status: 200, json: async () => ({ ...products[0], stock: 0 }) };
+      }
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+
+    render(<App />);
+
+    const catalogButton = await screen.findByRole("button", { name: /out of stock/i });
+    expect(catalogButton).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("link", { name: /trail backpack/i }));
+
+    const detailButton = await screen.findByRole("button", { name: /out of stock/i });
+    expect(detailButton).toBeDisabled();
+  });
+
+  it("shows a toast when an item is added to the cart", async () => {
+    const user = userEvent.setup();
+    mockFetch();
+
+    render(<App />);
+
+    await user.click((await screen.findAllByRole("button", { name: /add to cart/i }))[0]);
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Item added to cart");
+  });
 });

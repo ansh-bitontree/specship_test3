@@ -122,4 +122,24 @@ def test_product_writes_require_authentication():
         },
     )
 
-    assert response.status_code == 401
+    assert response.status_code == 403
+
+
+def test_product_create_rejects_invalid_payloads():
+    reset_database()
+    client = TestClient(app)
+    token = create_token(client)
+
+    response = client.post(
+        "/products",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "name": "",
+            "description": "Invalid product",
+            "price": "-1.00",
+            "stock": -1,
+            "image_url": "https://example.com/invalid.jpg",
+        },
+    )
+
+    assert response.status_code == 422

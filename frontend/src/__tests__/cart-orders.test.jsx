@@ -130,8 +130,31 @@ describe("cart and order flow", () => {
     await user.click(screen.getByRole("button", { name: /place order/i }));
 
     expect(await screen.findByRole("heading", { name: /order placed/i })).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent("Order placed successfully");
     expect(localStorage.getItem("cartItems")).toBe("[]");
     expect(screen.getByRole("link", { name: /view your orders/i })).toHaveAttribute("href", "/orders");
+  });
+
+  it("shows an error when an order cannot be placed", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("authToken", "signed.jwt.token");
+    localStorage.setItem("cartItems", JSON.stringify([{ product: products[0], quantity: 1 }]));
+    mockFetch(async (url) => {
+      if (url === "/auth/me") {
+        return { status: 200, body: { id: 1, name: "Ada Lovelace", email: "ada@example.com" } };
+      }
+      if (url === "/orders") {
+        return { status: 400, body: { detail: "Insufficient stock" } };
+      }
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+
+    render(<App />);
+    await screen.findByText(/ada lovelace/i);
+    await user.click(screen.getByRole("link", { name: /cart/i }));
+    await user.click(screen.getByRole("button", { name: /place order/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Order could not be placed");
   });
 
   it("lists past orders for a logged-in user", async () => {
@@ -162,7 +185,25 @@ describe("cart and order flow", () => {
     render(<App />);
 
     expect(await screen.findByText(/order #10/i)).toBeInTheDocument();
-    expect(screen.getByText(/pending/i)).toBeInTheDocument();
+    expect(screen.getByText(/pending/i)).toHaveClass("status-label", "status-label--pending");
     expect(screen.getByText("$199.48")).toBeInTheDocument();
+  });
+
+  it("shows a friendly orders loading error", async () => {
+    localStorage.setItem("authToken", "signed.jwt.token");
+    mockFetch(async (url) => {
+      if (url === "/auth/me") {
+        return { status: 200, body: { id: 1, name: "Ada Lovelace", email: "ada@example.com" } };
+      }
+      if (url === "/orders") {
+        return { status: 500, body: {} };
+      }
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+
+    window.history.pushState({}, "", "/orders");
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to load orders");
   });
 });
