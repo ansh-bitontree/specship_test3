@@ -62,7 +62,9 @@ input {
 .form button,
 .session button,
 .product-card button,
-.product-detail button {
+.product-detail button,
+.cart-page button,
+.button-link {
   min-height: 40px;
   padding: 0 14px;
   color: #ffffff;
@@ -70,6 +72,12 @@ input {
   border: 0;
   border-radius: 6px;
   cursor: pointer;
+}
+
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 
 .catalog-header {
@@ -169,6 +177,60 @@ input {
   margin: 0;
 }
 
+.cart-page,
+.orders-page {
+  width: min(900px, calc(100% - 32px));
+  margin: 40px auto;
+}
+
+.cart-items,
+.order-list {
+  display: grid;
+  gap: 14px;
+}
+
+.cart-item,
+.order-row,
+.cart-summary {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #d8dee4;
+  border-radius: 8px;
+}
+
+.cart-item h2,
+.cart-item p,
+.order-row h2,
+.order-row p {
+  margin: 0;
+}
+
+.cart-item h2,
+.order-row h2 {
+  font-size: 18px;
+}
+
+.quantity-controls {
+  display: grid;
+  grid-template-columns: 40px 32px 40px;
+  align-items: center;
+  text-align: center;
+}
+
+.cart-summary {
+  grid-template-columns: 1fr auto;
+  margin: 18px 0;
+  font-size: 18px;
+}
+
+.order-row {
+  grid-template-columns: 1fr auto auto;
+}
+
 @media (max-width: 700px) {
   .navbar,
   .catalog-header {
@@ -181,6 +243,11 @@ input {
   }
 
   .product-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .cart-item,
+  .order-row {
     grid-template-columns: 1fr;
   }
 }

@@ -3,11 +3,78 @@ import { Link, Navigate, Route, BrowserRouter as Router, Routes, useNavigate, us
 
 
 const AuthContext = createContext(null);
+const CartContext = createContext(null);
 const TOKEN_KEY = "authToken";
+const CART_KEY = "cartItems";
 
 
 function useAuth() {
   return useContext(AuthContext);
+}
+
+
+function useCart() {
+  return useContext(CartContext);
+}
+
+
+function readStoredCart() {
+  try {
+    return JSON.parse(localStorage.getItem(CART_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
+
+function CartProvider({ children }) {
+  const [items, setItems] = useState(readStoredCart);
+
+  useEffect(() => {
+    localStorage.setItem(CART_KEY, JSON.stringify(items));
+  }, [items]);
+
+  const value = useMemo(
+    () => ({
+      items,
+      addItem(product) {
+        setItems((currentItems) => {
+          const existingItem = currentItems.find((item) => item.product.id === product.id);
+          if (existingItem) {
+            return currentItems.map((item) =>
+              item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item,
+            );
+          }
+          return [...currentItems, { product, quantity: 1 }];
+        });
+      },
+      removeItem(productId) {
+        setItems((currentItems) => currentItems.filter((item) => item.product.id !== productId));
+      },
+      increaseQuantity(productId) {
+        setItems((currentItems) =>
+          currentItems.map((item) =>
+            item.product.id === productId ? { ...item, quantity: item.quantity + 1 } : item,
+          ),
+        );
+      },
+      decreaseQuantity(productId) {
+        setItems((currentItems) =>
+          currentItems
+            .map((item) =>
+              item.product.id === productId ? { ...item, quantity: item.quantity - 1 } : item,
+            )
+            .filter((item) => item.quantity > 0),
+        );
+      },
+      clearCart() {
+        setItems([]);
+      },
+    }),
+    [items],
+  );
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
 
@@ -232,6 +299,8 @@ function formatPrice(price) {
 
 
 function ProductCard({ product }) {
+  const { addItem } = useCart();
+
   return (
     <article className="product-card">
       <img src={product.image_url} alt={product.name} />
@@ -240,7 +309,9 @@ function ProductCard({ product }) {
           <h2>{product.name}</h2>
         </Link>
         <p className="product-price">{formatPrice(product.price)}</p>
-        <button type="button">Add to Cart</button>
+        <button type="button" onClick={() => addItem(product)}>
+          Add to Cart
+        </button>
       </div>
     </article>
   );
@@ -320,6 +391,7 @@ function HomePage() {
 
 function ProductDetailPage() {
   const { id } = useParams();
+  const { addItem } = useCart();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -375,7 +447,9 @@ function ProductDetailPage() {
         <p>{product.description}</p>
         <p className="product-price">{formatPrice(product.price)}</p>
         <p>{product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}</p>
-        <button type="button">Add to Cart</button>
+        <button type="button" onClick={() => addItem(product)}>
+          Add to Cart
+        </button>
       </section>
     </main>
   );
@@ -383,18 +457,175 @@ function ProductDetailPage() {
 
 
 function CartPage() {
+  const navigate = useNavigate();
+  const { token, user } = useAuth();
+  const { items, increaseQuantity, decreaseQuantity, removeItem, clearCart } = useCart();
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const total = items.reduce((sum, item) => sum + Number(item.product.price) * item.quantity, 0);
+
+  async function placeOrder() {
+    setError("");
+    setSubmitting(true);
+    try {
+      const response = await fetch("/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          items: items.map((item) => ({
+            product_id: item.product.id,
+            quantity: item.quantity,
+          })),
+        }),
+      });
+      if (!response.ok) {
+        throw new Error("Unable to place order");
+      }
+      clearCart();
+      navigate("/order-success");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <main className="cart-page">
+      <h1>Cart</h1>
+      {items.length === 0 ? (
+        <p>Your cart is empty.</p>
+      ) : (
+        <>
+          <div className="cart-items">
+            {items.map((item) => {
+              const subtotal = Number(item.product.price) * item.quantity;
+              return (
+                <article className="cart-item" key={item.product.id}>
+                  <div>
+                    <h2>{item.product.name}</h2>
+                    <p>{formatPrice(item.product.price)} each</p>
+                  </div>
+                  <div className="quantity-controls">
+                    <button
+                      type="button"
+                      aria-label={`Decrease ${item.product.name}`}
+                      onClick={() => decreaseQuantity(item.product.id)}
+                    >
+                      -
+                    </button>
+                    <span>{item.quantity}</span>
+                    <button
+                      type="button"
+                      aria-label={`Increase ${item.product.name}`}
+                      onClick={() => increaseQuantity(item.product.id)}
+                    >
+                      +
+                    </button>
+                  </div>
+                  <p>{formatPrice(subtotal)}</p>
+                  <button type="button" onClick={() => removeItem(item.product.id)}>
+                    Remove
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+          <section className="cart-summary" aria-label="Cart summary">
+            <strong>Total</strong>
+            <span>{formatPrice(total)}</span>
+          </section>
+          {user ? (
+            <button type="button" onClick={placeOrder} disabled={submitting}>
+              {submitting ? "Placing Order..." : "Place Order"}
+            </button>
+          ) : (
+            <Link className="button-link" to="/login">
+              Login to Checkout
+            </Link>
+          )}
+          {error && <p role="alert">{error}</p>}
+        </>
+      )}
+    </main>
+  );
+}
+
+
+function OrderSuccessPage() {
   return (
     <main className="page">
-      <h1>Cart</h1>
+      <h1>Order Placed</h1>
+      <p>Your order has been placed successfully.</p>
+      <Link to="/orders">View your orders</Link>
     </main>
   );
 }
 
 
 function OrdersPage() {
+  const { token } = useAuth();
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadOrders() {
+      setLoading(true);
+      setError("");
+      try {
+        const response = await fetch("/orders", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          throw new Error("Unable to load orders");
+        }
+        const payload = await response.json();
+        if (!ignore) {
+          setOrders(payload);
+        }
+      } catch {
+        if (!ignore) {
+          setError("Unable to load orders");
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadOrders();
+    return () => {
+      ignore = true;
+    };
+  }, [token]);
+
   return (
-    <main className="page">
+    <main className="orders-page">
       <h1>Orders</h1>
+      {loading && <p>Loading orders...</p>}
+      {error && <p role="alert">{error}</p>}
+      {!loading && !error && orders.length === 0 && <p>No orders yet.</p>}
+      {!loading && !error && orders.length > 0 && (
+        <div className="order-list">
+          {orders.map((order) => (
+            <article className="order-row" key={order.id}>
+              <div>
+                <h2>Order #{order.id}</h2>
+                <p>{new Date(order.created_at).toLocaleDateString()}</p>
+              </div>
+              <span>{order.status}</span>
+              <strong>{formatPrice(order.total_price)}</strong>
+            </article>
+          ))}
+        </div>
+      )}
     </main>
   );
 }
@@ -409,14 +640,8 @@ function AppRoutes() {
         <Route path="/products/:id" element={<ProductDetailPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route
-          path="/cart"
-          element={
-            <ProtectedRoute>
-              <CartPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/cart" element={<CartPage />} />
+        <Route path="/order-success" element={<OrderSuccessPage />} />
         <Route
           path="/orders"
           element={
@@ -435,7 +660,9 @@ export default function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppRoutes />
+        <CartProvider>
+          <AppRoutes />
+        </CartProvider>
       </AuthProvider>
     </Router>
   );
